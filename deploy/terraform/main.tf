@@ -58,6 +58,7 @@ data "template_file" "cloud_init" {
     source = "${var.source}"
     init_script = "${replace(file("${path.module}/init-cloud/init.sh"), "/(?m)^/", "      ")}"
     public_key = "${replace(file("${path.module}/id_rsa.pub"), "/(?m)^/", "        ")}"
+    docker_compose_env = "${replace(file("${path.module}/assets/docker-compose.env"), "/(?m)^/", "      ")}"
   }
 }
 
