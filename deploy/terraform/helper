@@ -1,0 +1,130 @@
+#!/bin/bash
+help() {
+    cat << EOF
+
+# Usage
+./this-script help
+
+# Commands
+help            - print this help message
+initialise      - terragrunt apply - (re)init infrastructure
+reinitialise    - destroy and init the droplet - for testing cloud-init or whatever
+hibernate       - terragrunt destroy *all but persistent storage*
+die             - terragrunt destroy *all*
+log             - stream cloud init log from droplet
+connect         - ssh to the droplet
+ping            - pong
+
+# Flags
+-f              - don't prompt for input, just apply/accept everything
+
+EOF
+}
+
+initialise() {
+    echo ">> Initialising droplet"
+    echo
+
+    if [[ "$FORCE" = true ]]
+    then
+        yes 'yes' | terragrunt apply
+    else
+        terragrunt apply
+    fi
+}
+
+reinitialise() {
+    echo ">> Destroying droplet"
+    echo
+
+    if [[ "$FORCE" = true ]]
+    then
+        yes 'yes' | terragrunt destroy -target digitalocean_droplet.droplet
+    else
+        terragrunt destroy -target digitalocean_droplet.droplet
+    fi
+
+    initialise
+}
+
+hibernate() {
+    echo ">> Destroying everything but the persistent volume"
+    echo
+
+    if [[ "$FORCE" = true ]]
+    then
+        yes 'yes' | terragrunt destroy -target digitalocean_droplet.droplet -target digitalocean_floating_ip.droplet_ip
+    else
+        terragrunt destroy -target digitalocean_droplet.droplet -target digitalocean_floating_ip.droplet_ip
+    fi
+}
+
+log() {
+    # StrictHostKeyChecking disabled, because I regenerate the droplet all the time for testing
+    # and therefore the host key changes and I don't want to manually remove it.
+    ssh -o StrictHostKeyChecking=no "user@$(terraform output droplet_ip)" -i ~/.ssh/id_rsa.key \
+        "tail -f /var/log/cloud-init.log"
+}
+
+connect() {
+    ssh -o StrictHostKeyChecking=no -t "user@$(terraform output droplet_ip)" -i ~/.ssh/id_rsa.key
+}
+
+die() {
+    echo ">> Destroying everything"
+    echo
+
+    if [[ "$FORCE" = true ]]
+    then
+        yes 'yes' | terragrunt destroy
+    else
+        terragrunt destroy
+    fi
+}
+
+ping() {
+    echo ">> Pong"
+}
+
+# No argument detection
+if [[ $# -eq 0 ]]
+then
+    help
+    exit 0
+fi
+
+# Argument parsing
+for var in "$@"
+do
+    # Command parsing
+    if [[ "$var" =~ ^(help|initialise|reinitialise|hibernate|die|log|connect|ping)$ ]]
+    then
+        export SHORTCUT="$var"
+    fi
+
+    # Flag parsing
+    if [[ $var == "-f" ]]
+    then
+        export FORCE=true
+    fi
+done
+
+# Report of plans
+    # Running command
+    if [[ -n "$SHORTCUT" ]]
+    then
+        echo ">> Running command $SHORTCUT"
+    else
+        echo ">> Sorrjan, no valid command provided."
+        help
+        exit 0
+    fi
+
+    # Flag report
+    if [[ -n "$FORCE" ]]
+    then
+        echo ">> Force flag enabled"
+    fi
+
+# Take action
+eval $SHORTCUT
