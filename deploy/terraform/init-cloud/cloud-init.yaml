@@ -6,7 +6,7 @@ write_files:
     content: |
 ${init_script}
 
-  - path: /tmp/deployment/assets/.env
+  - path: /tmp/deployment/.env
     permissions: '0755'
     content: |
 ${docker_compose_env}

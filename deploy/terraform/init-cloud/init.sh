@@ -12,6 +12,7 @@ mkdir -p /var/deployment
 
 cd /var/deployment
 git rev-parse --is-inside-work-tree || git clone "$GITHUB_REPO" .
+mv /tmp/deployment/.env /var/deployment 2> /dev/null
 
 cd deploy/chef
 HOME=/root ./init
